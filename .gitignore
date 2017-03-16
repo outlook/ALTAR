@@ -1,0 +1,5 @@
+env
+.vagrant
+*.swp
+*.pyc
+bootstrap.log

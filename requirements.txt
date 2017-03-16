@@ -1,0 +1,7 @@
+pip>=9.0.1
+urllib3[secure]
+web.py
+requests
+cffi
+cryptography
+adal
