@@ -4,13 +4,16 @@ Generate an SSH certificate using AAD information
 
 #pylint: disable=import-error,no-init,no-self-use,invalid-name,missing-docstring,too-few-public-methods
 
+import base64
 from pprint import pformat as pf
 import os
 
 from azure.common.credentials import ServicePrincipalCredentials
+from azure.keyvault import KeyVaultClient
 import web
 
 from azure_ad import get_groups, get_user_name, get_graph_token
+from cert import SSHPublicKeyFile
 #import cert
 
 TENANT_ID = os.environ.get(
@@ -33,14 +36,25 @@ def get_vault_client():
         tenant=TENANT_ID,
         resource="https://vault.azure.net"
     )
-    return azure.keyvault.KeyVaultClient(credentials)
+    return KeyVaultClient(credentials)
 
 class CAKeyFile(object):
     def GET(self):
         """ Retrieve the signing pubkey out of the vault, and return an OpenSSH CA pubkey file """
         vault_client = get_vault_client()
         key_info = vault_client.get_key("https://olm-altar-test.vault.azure.net/keys/signing-key")
-        return "Thank you for shooping at foomart, Mr. {}".format(key_info)
+
+        keyfile = SSHPublicKeyFile()
+        keyfile.e = key_info.key.e
+        keyfile.n = key_info.key.n
+
+        encoded_pubkey = base64.b64encode(keyfile.build_keyfile("ssh-rsa"))
+
+        return "Thank you for shooping at foomart, Mr. {}\n{} {}".format(
+            key_info,
+            '"ssh-rsa"',
+            encoded_pubkey
+        )
 
 
 class SSHCertGenerator(object):

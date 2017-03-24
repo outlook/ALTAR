@@ -177,21 +177,24 @@ class SSHCertificate(object):                                                   
                         fieldname, self.__getattribute__(fieldname), err))
         return output
 
-    def load(self, filename):
+    @classmethod
+    def load(cls, filename):
         with open(filename) as certfile:
             raw = base64.b64decode(certfile.read().split(" ")[1])
-            return self.loads(raw)
+            return cls.loads(raw)
 
-    def loads(self, raw):
+    @classmethod
+    def loads(cls, raw):
         cert_fmt, raw = decode_string(raw)
         if cert_fmt not in ssh_certificate_formats:
             raise NotImplementedError(
                 "certificate type {} is not one of the implemented formats".format(
                     cert_fmt))
+        newcert = cls()
         for fieldtype, fieldname in ssh_certificate_formats[cert_fmt]:
             try:
                 value, raw = fieldtype.decode(raw)
-                self.__setattr__(fieldname, value)
+                newcert.__setattr__(fieldname, value)
             except ValueError as err:
                 raise ValueError(
                     "certificate field {} cannot be decoded: {}".format(fieldname, err)
@@ -205,3 +208,4 @@ class SSHCertificate(object):                                                   
                     fieldname, repr(raw), err
                 ))
             #print "set field {} to value {}".format(fieldname, repr(value))
+        return newcert
