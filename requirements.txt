@@ -4,4 +4,8 @@ web.py
 requests
 cffi
 cryptography
+msrest
+msrestazure
 adal
+azure-common
+azure-keyvault

@@ -2,98 +2,69 @@
 Generate an SSH certificate using AAD information
 """
 
-#pylint: disable=import-error,old-style-class,no-init,no-self-use
+#pylint: disable=import-error,no-init,no-self-use,invalid-name,missing-docstring,too-few-public-methods
 
 from pprint import pformat as pf
 import os
+
+from azure.common.credentials import ServicePrincipalCredentials
 import web
-import requests
-import adal
+
+from azure_ad import get_groups, get_user_name, get_graph_token
+#import cert
 
 TENANT_ID = os.environ.get(
     'WEBSITE_AUTH_OPENID_ISSUER',
     'https://sts.microsoft.com/common/').split('/', 4)[3]
-APPLICATION_ID = os.environ.get('WEBSITE_AUTH_CLIENT_ID', '00000002-0000-0000-c000-000000000000')
+CLIENT_ID = os.environ.get('WEBSITE_AUTH_CLIENT_ID', '00000002-0000-0000-c000-000000000000')
+CLIENT_SECRET = os.environ.get('WEBSITE_AUTH_CLIENT_SECRET', '')
 
 URLS = (
+    '/cakey', 'CAKeyFile',
     '/.*', 'SSHCertGenerator'
 )
 WSGI_APP = web.application(URLS, globals()).wsgifunc()
 
-def get_groups(access_token, prefix_filter=None):
-    """ Return a list of the user's groups' displayNames. """
+def get_vault_client():
+    """ Get a KeyVault client belonging to this application """
+    credentials = ServicePrincipalCredentials(
+        client_id=CLIENT_ID,
+        secret=CLIENT_SECRET,
+        tenant=TENANT_ID,
+        resource="https://vault.azure.net"
+    )
+    return azure.keyvault.KeyVaultClient(credentials)
 
-    headers = {
-        "Authorization": "Bearer {}".format(access_token),
-        "Content-Type": "application/json"
-    }
-    group_url = "https://graph.windows.net/me/memberOf?api-version=1.6"
+class CAKeyFile(object):
+    def GET(self):
+        """ Retrieve the signing pubkey out of the vault, and return an OpenSSH CA pubkey file """
+        vault_client = get_vault_client()
+        key_info = vault_client.get_key("https://olm-altar-test.vault.azure.net/keys/signing-key")
+        return "Thank you for shooping at foomart, Mr. {}".format(key_info)
 
-    groups = []
-    while True:
-        try:
-            resp = requests.get(
-                group_url,
-                headers=headers
-            )
-            resp.encoding = 'utf-8-sig'
-            data = resp.json()
-        except Exception as err: #pylint: disable=broad-except
-            raise web.HTTPError('503 Service Unavailable', data=str(err))
 
-        if 'odata.error' in data:
-            raise web.HTTPError(
-                '503 Service Unavailable',
-                data="odata error: {}".format(data['odata.error'])
-            )
-
-        if 'value' not in data:
-            raise web.HTTPError(
-                '503 Service Unavailable',
-                data="no value in group data {}".format(data)
-            )
-        for value in data['value']:
-            try:
-                if prefix_filter is None \
-                        or (prefix_filter is not None and value['displayName'].startswith(prefix_filter)):
-                    groups.append(value['displayName'])
-            except KeyError as err:
-                # log an error here eventually
-                pass
-
-        if 'odata.nextLink' in data:
-            group_url = "https://graph.windows.net/{tenant}/{link}&api-version=1.6".format(
-                tenant=TENANT_ID,
-                link=data['odata.nextLink']
-            )
-        else:
-            break
-
-    return groups
-
-class SSHCertGenerator(object):         #pylint: disable=missing-docstring,too-few-public-methods
-    def GET(self):                      #pylint: disable=invalid-name
+class SSHCertGenerator(object):
+    def GET(self):
         """ GET method takes no arguments. Returns a base64-encoded cert in a json obj """
 
-        adal_ctx = adal.AuthenticationContext(
-            "https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47"
-        )
         aad_refresh_token = web.ctx.env.get('HTTP_X_MS_TOKEN_AAD_REFRESH_TOKEN')
-        #aad_id_token = web.ctx.env.get('HTTP_X_MS_TOKEN_AAD_ID_TOKEN')
+        graph_bearer_token = get_graph_token(CLIENT_ID, TENANT_ID, aad_refresh_token)
+        #keyvault_client = get_vault_client()
 
-        graph_token_info = adal_ctx.acquire_token_with_refresh_token(
-            aad_refresh_token,
-            APPLICATION_ID,
-            'https://graph.windows.net'
-        )
-        graph_bearer_token = graph_token_info['accessToken']
-        user_info = requests.get(
-            'https://graph.windows.net/me?api-version=1.6',
-            headers={"Authorization": "Bearer {}".format(graph_bearer_token)},
-            data={}
-        ).json()
-        user_name = user_info['userPrincipalName'].split('@')[0]
-        group_list = get_groups(graph_bearer_token, prefix_filter='olm-')
+        user_name = get_user_name(graph_bearer_token)
+        try:
+            groups = get_groups(TENANT_ID, graph_bearer_token, prefix_filter='olm-')
+        except RuntimeError as err:
+            raise web.HTTPError('503 Service Unavailable', data=str(err))
+
+#        user_cert = cert.SSHCertificate(
+#            user_id=user_name.split('@')[0],
+#            key_id=user_name,
+#            pubkey="foo"#key from POST?,
+#            cert_type=cert.SSH_CERT_TYPE_USER
+#        )
+#        unsigned_cert = cert.build_certificate()
+#
         return """Hello, {name}, you gave me
         {env}
         with which I got
@@ -103,7 +74,7 @@ class SSHCertGenerator(object):         #pylint: disable=missing-docstring,too-f
             name=user_name,
             env=pf(aad_refresh_token),
             reftok=pf(graph_bearer_token),
-            groupinfo=pf(group_list)
+            groupinfo=pf(groups)
         )
 
 if __name__ == "__main__":

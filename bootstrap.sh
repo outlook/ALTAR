@@ -1,11 +1,20 @@
 #!/bin/bash
 
+# This is an incomplete script to automate most of the configuration of resources necessary
+# for ALTAR setup. It does not work, but is provided here as a potentially-useful reference
+# if the README file is insufficient. There are definitely setup steps that are not, or can
+# not, be encompassed by the azure-cli tools. Please do not treat it as authoritative! :)
+
 BOOTSTRAP_LOG="bootstrap.log"
 
 AZ_LOCATION="West US"
 AZ_RESOURCE_GROUP_NAME="altar-test-rg"
 AZ_APPSVC_PLAN_NAME="altar-test-appsvc"
 AZ_APP_NAME="altar"
+AZ_VAULT_NAME="altar-test"
+
+SIGNING_KEY_FILE="id_rsa"
+SIGNING_PUBKEY_FILE="id_rsa.pub"
 
 # This password must be apprpriate for embedding into a URL; i.e.
 #  https://deployerid:${AZ_DEPLOY_PASSWORD}@...
@@ -97,3 +106,32 @@ if ! git remote show | grep azurelocalgit >/dev/null 2>/dev/null
 then
     git remote add azurelocalgit "https://${local_git_url}" >$BOOTSTRAP_LOG
 fi
+
+echo "Getting the object ID for the ${AZ_APP_NAME} Azure Active Directory App registration"
+app_obj_id=$(az ad app show --id "https://${AZ_APP_NAME}.azurewebsites.net" | awk -F '"' '/objectId/ {print $4}')
+
+echo "Creating Key Vault to store signing key"
+az keyvault create \
+    --location "${AZ_LOCATION}" \
+    --name "${AZ_VAULT_NAME}" \
+    --resource-group "${AZ_RESOURCE_GROUP_NAME}" >$BOOTSTRAP_LOG 2>$BOOTSTRAP_LOG
+
+echo "Granting key access permissions to ${AZ_APP_NAME}"
+az keyvault set-policy \
+    --name "${AZ_VAULT_NAME}" \
+    --object-id "${app_obj_id}" \
+    --secret-permissions "get" >$BOOTSTRAP_LOG 2>$BOOTSTRAP_LOG
+
+echo "Placing the signing key into the vault"
+az keyvault secret set \
+    --name "signing-key" \
+    --vault-name "${AZ_VAULT_NAME}" \
+    --description "ALTAR Signing Key" \
+    --file "${SIGNING_KEY_FILE}"
+
+echo "Placing the signing public key into the vault"
+az keyvault secret set \
+    --name "signing-key.pub" \
+    --vault-name "${AZ_VAULT_NAME}" \
+    --description "ALTAR Signing Key Public Portion" \
+    --file "${SIGNING_PUBKEY_FILE}"
