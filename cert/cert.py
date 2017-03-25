@@ -77,7 +77,7 @@ class Extensions(object):                                                       
 class SSHCertificate(object):                                                       #pylint: disable=too-many-instance-attributes
 
     def __init__(self, user_id=None, key_id=None, pubkey=None, cert_type=None, hours_valid=3,  #pylint: disable=too-many-arguments
-                 crit_opts=None, exts=None):
+                 crit_opts=None, exts=None, signature_key=None):
         self.key_id = key_id
         self.valid_principals = [user_id] if user_id else None
         self._cert_type = cert_type
@@ -86,6 +86,7 @@ class SSHCertificate(object):                                                   
         self.nonce = str(bytearray(getrandbits(8) for _ in range(32)))
         self.serial = 0
         self.pubkey = pubkey
+        self.signature_key = signature_key
 
         self.hours_valid = hours_valid
 
@@ -166,7 +167,7 @@ class SSHCertificate(object):                                                   
                 output += value
                 #print "appended field {} with value {}".format(fieldname, repr(value))
             except AttributeError as err:
-                if not fieldname == "signature" and not fieldname == "signature_key":
+                if not fieldname == "signature":
                     raise AttributeError(
                         "building cert of type {} failed! {} field missing".format(
                             certificate_format, fieldname)
