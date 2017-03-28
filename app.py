@@ -17,7 +17,7 @@ import web
 
 from azure_ad import get_groups, get_user_name, get_graph_token
 import cert
-from cert.encodec import unpack_intstr
+from cert.encodec import unpack_binstr
 
 TENANT_ID = os.environ['WEBSITE_AUTH_OPENID_ISSUER'].split('/', 4)[3]
 CLIENT_ID = os.environ['WEBSITE_AUTH_CLIENT_ID']
@@ -71,8 +71,8 @@ class CAKeyFile(object):
         key = keyinfo.key                                                           #pylint: disable=no-member
         keyfile = cert.SSHPublicKeyFile()
         try:
-            keyfile.e = unpack_intstr(key.e)
-            keyfile.n = unpack_intstr(key.n)
+            keyfile.e = unpack_binstr(key.e)
+            keyfile.n = unpack_binstr(key.n)
         except TypeError:
             raise web.HTTPError(
                 "500 Internal Error",

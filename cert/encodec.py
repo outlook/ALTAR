@@ -21,6 +21,16 @@ import math
 from struct import pack, unpack, error as struct_error
 
 
+__all__ = [
+    "mpint",
+    "packedlist",
+    "string",
+    "uint32",
+    "uint64",
+    "unpack_binstr",
+]
+
+
 def _num_bytes(value):
     return int(math.ceil(value.bit_length() / 8.0))
 
@@ -114,6 +124,8 @@ def decode_mpint(value):
 
     return _shift_sum(result), value[size:]
 
+def unpack_binstr(value):
+    return sum([ord(c) << i*8 for i, c in enumerate(value[::-1])])
 
 SSHDataType = namedtuple("SSH_data_type", "encode decode")
 
@@ -122,11 +134,3 @@ uint64 = SSHDataType(encode_uint64, decode_uint64)
 string = SSHDataType(encode_string, decode_string)
 packedlist = SSHDataType(encode_packedlist, decode_packedlist)
 mpint = SSHDataType(encode_mpint, decode_mpint)
-
-__all__ = [
-    "mpint",
-    "packedlist",
-    "string",
-    "uint32",
-    "uint64",
-]
