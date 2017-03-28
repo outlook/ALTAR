@@ -81,11 +81,10 @@ class CAKeyFile(object):
 
         encoded_pubkey = base64.b64encode(keyfile.build_keyfile("ssh-rsa"))
 
-        return "Thank you for shooping at foopmart, Mr. {}\n{} {}\n{}".format(
-            web.ctx.env.get('AUTH_USER'),
-            '"ssh-rsa"',
+        web.header('Content-Type', 'text/plain; charset=UTF-8')
+        return "{} {}".format(
+            'ssh-rsa',
             encoded_pubkey,
-            keyinfo,
         )
 
 
