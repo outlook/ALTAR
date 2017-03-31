@@ -35,7 +35,7 @@ def sign_rsa(data, private_key):
     return {
         "r": private_key.sign(
             data,
-            padding.PKCS1v15,
+            padding.PKCS1v15(),
             SSH_CERTIFICATE_DIGESTMETHODS['ssh-rsa']
         )
     }

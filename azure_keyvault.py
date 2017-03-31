@@ -31,9 +31,9 @@ def get_signing_privkey(client, secret_url):
     EllipticCurvePrivateKey depending on the contents of the secret.
     """
     try:
-        raw_privkey = client.get_secret(secret_url)
+        raw_privkey = client.get_secret(secret_url).value
         return load_pem_private_key(
-            raw_privkey,
+            str(raw_privkey),
             None,
             default_backend()
         )
@@ -50,9 +50,9 @@ def get_signing_pubkey(client, secret_url):
     EllipticCurvePublicKey depending on the contents of the secret.
     """
     try:
-        raw_pubkey = client.get_secret(secret_url)
+        raw_pubkey = client.get_secret(secret_url).value
         return load_ssh_public_key(
-            raw_pubkey,
+            str(raw_pubkey),
             default_backend()
         )
     except KeyVaultErrorException as err:

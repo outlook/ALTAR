@@ -61,7 +61,7 @@ def encode_string(value):
     if len(value) > 2**32 - 1:
         raise ValueError("Cannot pack a string longer than 4 GiB")
     try:
-        return pack("!I{l}s".format(l=len(value)), len(value), value)
+        return pack("!I{l}s".format(l=len(value)), len(value), str(value))
     except struct_error as err:
         raise ValueError("could not pack value {}: {}".format(repr(value), err))
 

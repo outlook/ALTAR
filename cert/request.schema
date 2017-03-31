@@ -1,0 +1,51 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "properties": {
+        "criticalOptions": {
+            "id": "/properties/criticalOptions",
+            "properties": {
+                "force-command": {
+                    "id": "/properties/criticalOptions/properties/force-command",
+                    "type": "string"
+                },
+                "source-addresses": {
+                    "id": "/properties/criticalOptions/properties/source-addresses",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "source-addresses",
+                "force-command"
+            ],
+            "type": "object"
+        },
+        "extensions": {
+            "id": "/properties/extensions",
+            "items": {
+                "id": "/properties/extensions/items",
+                "type": "string"
+            },
+            "type": "array"
+        },
+        "principal": {
+            "id": "/properties/principal",
+            "type": "string"
+        },
+        "publicKey": {
+            "id": "/properties/publicKey",
+            "type": "string"
+        },
+        "signature": {
+            "id": "/properties/signature",
+            "type": "string"
+        }
+    },
+    "required": [
+        "extensions",
+        "signature",
+        "criticalOptions",
+        "publicKey",
+        "principal"
+    ],
+    "type": "object"
+}

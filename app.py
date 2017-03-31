@@ -15,7 +15,7 @@ import web
 from azure_ad import get_groups, get_user_name, get_graph_token
 from azure_keyvault import get_vault_client, get_signing_pubkey, get_signing_privkey
 import cert
-from cert.request import SSHCSR
+from cert.request import SSHCSR, CSR_SCHEMA
 
 TENANT_ID = os.environ['WEBSITE_AUTH_OPENID_ISSUER'].split('/', 4)[3]
 CLIENT_ID = os.environ['WEBSITE_AUTH_CLIENT_ID']
@@ -36,7 +36,7 @@ class CAKeyFile(object):
             vault_client = get_vault_client(CLIENT_ID, CLIENT_SECRET, TENANT_ID)
             pubkey_numbers = get_signing_pubkey(
                 vault_client,
-                "https://olm-altar-test.vault.azure.net/secrets/signing-key.pub"
+                "https://olm-altar-test.vault.azure.net/secrets/signing-pubkey"
             ).public_numbers()
         except AuthenticationError as err:
             raise web.HTTPError(
@@ -73,6 +73,10 @@ class CAKeyFile(object):
 
 
 class SSHCertGenerator(object):
+    def GET(self):
+        web.header('Content-Type', 'application/json')
+        return CSR_SCHEMA
+
     def POST(self):
         """
 
@@ -107,7 +111,7 @@ class SSHCertGenerator(object):
             vault_client,
             "https://olm-altar-test.vault.azure.net/secrets/signing-key"
         )
-        pubkey_numbers = signing_key.public_key().public_number()
+        pubkey_numbers = signing_key.public_key().public_numbers()
         signing_pubkey = cert.SSHPublicKeyFile("ssh-rsa")
         signing_pubkey.e = pubkey_numbers.e
         signing_pubkey.n = pubkey_numbers.n
@@ -122,7 +126,7 @@ class SSHCertGenerator(object):
         user_cert.extensions = csr.extensions
         user_cert.signature_key = signing_pubkey.build_keyfile()
 
-        user_cert.signature = user_cert.sign(signing_key)
+        user_cert.sign(signing_key)
 
         return "{} {} {}".format(
             user_cert.certificate_format,

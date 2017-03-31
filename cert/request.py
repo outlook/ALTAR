@@ -7,6 +7,7 @@ This is a basic type of CSR for OpenSSH certificates
 import base64
 from collections import OrderedDict
 import json
+import os
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
@@ -20,6 +21,10 @@ from .pubkey import SSHPublicKeyFile
 
 CSR_FIELDS = ['principal', 'criticalOptions', 'extensions', 'certificateType', 'certificateFormat',
               'publicKey', 'signature']
+
+schema_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'request.schema')
+with open(schema_file) as schema_fh:
+    CSR_SCHEMA = schema_fh.read()
 
 class SSHCSR(object):
     """
@@ -65,7 +70,7 @@ class SSHCSR(object):
         out["extensions"] = self.extensions.dump()
         out["certificateType"] = self.certificate_type
         out["certificateFormat"] = self.certificate_format
-        out["publicKey"] = base64.b64encode(self.public_key.build_keyfile("ssh-rsa"))
+        out["publicKey"] = base64.b64encode(self.public_key.build_keyfile())
         if include_signature:
             out["signature"] = self.signature
         else:

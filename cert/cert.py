@@ -218,11 +218,14 @@ class SSHCertificate(object):                                                   
         key_type = decode_string(self.signature_key)[0]                             #pylint: disable=no-member
         if key_type not in certificate_signing_methods:
             raise NotImplementedError("cannot sign certificate with a {} key".format(key_type))
-        del self.signature
-        raw_signature = certificate_signing_methods[self.certificate_format](
+        raw_signature = certificate_signing_methods[key_type](
             self.build_certificate(),
             private_key
         )
+        try:
+            self.__delattr__("signature")
+        except AttributeError:
+            pass
         self.signature = encode_string(key_type)                                    #pylint: disable=attribute-defined-outside-init
         for fieldtype, fieldname in ssh_signature_formats[key_type]:
             self.signature += fieldtype.encode(raw_signature[fieldname])
