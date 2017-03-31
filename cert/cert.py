@@ -2,6 +2,9 @@
 
 Build OpenSSH certificates erryday.
 
+References:
+    https://raw.githubusercontent.com/openssh/openssh-portable/master/PROTOCOL.certkeys
+
 """
 
 #pylint: disable=missing-docstring
@@ -12,11 +15,10 @@ from datetime import datetime, timedelta
 from random import getrandbits
 from struct import error as struct_error
 
-from .formats import ssh_certificate_formats
+from .formats import ssh_certificate_formats, ssh_signature_formats
 from .encodec import encode_string, decode_string
+from .sign import certificate_signing_methods
 
-SSH_CERT_TYPE_USER = 1
-SSH_CERT_TYPE_HOST = 2
 
 class CriticalOptions(object): #pylint: disable=too-few-public-methods
     ordered_opts = ['force-command', 'source-addresses']
@@ -24,6 +26,15 @@ class CriticalOptions(object): #pylint: disable=too-few-public-methods
     def __init__(self, force_command=None, source_addresses=None):
         self.force_command = force_command
         self.source_addresses = source_addresses
+
+    def dump(self):
+        obj = {}
+        if self.force_command is not None:
+            obj['force-command'] = self.force_command
+        if self.source_addresses is not None:
+            obj['source-addresses'] = self.source_addresses
+
+        return obj
 
     def render(self):
         output = ""
@@ -55,6 +66,9 @@ class Extensions(object):                                                       
         self.permit_pty = permit_pty
         self.permit_user_rc = permit_user_rc
 
+    def dump(self):
+        return [v for v in self.__dict__.keys() if self.__getattribute__(v)]
+
     def render(self):
         output = ""
         for ext in Extensions.ordered_exts:
@@ -75,40 +89,24 @@ class Extensions(object):                                                       
 
 
 class SSHCertificate(object):                                                       #pylint: disable=too-many-instance-attributes
+    SSH_CERT_TYPE_USER = 1
+    SSH_CERT_TYPE_HOST = 2
 
-    def __init__(self, user_id=None, key_id=None, pubkey=None, cert_type=None, hours_valid=3,  #pylint: disable=too-many-arguments
-                 crit_opts=None, exts=None, signature_key=None):
-        self.key_id = key_id
-        self.valid_principals = [user_id] if user_id else None
-        self._cert_type = cert_type
-        self._critical_options = crit_opts
-        self._extensions = exts
+    def __init__(self, certificate_format):
+        if certificate_format not in ssh_certificate_formats:
+            raise ValueError("certificate format {} not supported".format(certificate_format))
+        self.certificate_format = certificate_format
         self.nonce = str(bytearray(getrandbits(8) for _ in range(32)))
         self.serial = 0
-        self.pubkey = pubkey
-        self.signature_key = signature_key
-
-        self.hours_valid = hours_valid
-
-    @property
-    def cert_type(self):
-        if self._cert_type is None:
-            raise ValueError("certificate builder has no certificate type set")
-        return self._cert_type
-
-    @cert_type.setter
-    def cert_type(self, cert_type):
-        if cert_type == SSH_CERT_TYPE_USER or cert_type == SSH_CERT_TYPE_HOST:
-            self._cert_type = cert_type
-        else:
-            raise ValueError("cert type must be SSH_CERT_TYPE_USER or SSH_CERT_TYPE_HOST")
+        self.hours_valid = 3
+        self._now = datetime.utcnow()
 
     @property
     def valid_after(self):
         try:
             return calendar.timegm(self._valid_after)
         except AttributeError:
-            return calendar.timegm(datetime.utcnow().timetuple())
+            return calendar.timegm(self._now.timetuple())
 
     @valid_after.setter
     def valid_after(self, timestamp):
@@ -120,7 +118,7 @@ class SSHCertificate(object):                                                   
             return calendar.timegm(self._valid_before)
         except AttributeError:
             return calendar.timegm(
-                (datetime.utcnow()+timedelta(hours=self.hours_valid)).timetuple()
+                (self._now+timedelta(hours=self.hours_valid)).timetuple()
             )
 
     @valid_before.setter
@@ -136,7 +134,10 @@ class SSHCertificate(object):                                                   
 
     @critical_options.setter
     def critical_options(self, opts):
-        self._critical_options = CriticalOptions.parse(opts)
+        if isinstance(opts, CriticalOptions):
+            self._critical_options = opts                                           #pylint: disable=attribute-defined-outside-init
+        else:
+            self._critical_options = CriticalOptions.parse(opts)                    #pylint: disable=attribute-defined-outside-init
 
     @property
     def extensions(self):
@@ -147,30 +148,31 @@ class SSHCertificate(object):                                                   
 
     @extensions.setter
     def extensions(self, exts):
-        self._extensions = Extensions.parse(exts)
+        if isinstance(exts, Extensions):
+            self._extensions = exts                                                 #pylint: disable=attribute-defined-outside-init
+        else:
+            self._extensions = Extensions.parse(exts)                               #pylint: disable=attribute-defined-outside-init
 
     @property
     def reserved(self):
         return ""
 
-    def build_certificate(self, certificate_format):
-        if certificate_format not in ssh_certificate_formats:
-            raise NotImplementedError("no definition available for requested format {}".format(
-                certificate_format
-            ))
+    def build_certificate(self):
+        output = encode_string(self.certificate_format)
 
-        output = encode_string(certificate_format)
-
-        for field_type, fieldname in ssh_certificate_formats[certificate_format]:
+        for field_type, fieldname in ssh_certificate_formats[self.certificate_format]:
             try:
                 value = field_type.encode(self.__getattribute__(fieldname))
                 output += value
-                #print "appended field {} with value {}".format(fieldname, repr(value))
             except AttributeError as err:
+                # Which fields are required depends on the relevant format (see formats.py).
+                # A missing "signature" field is acceptable because the certificate may not yet
+                # be signed and we hash the cert minus this field for signing.
                 if not fieldname == "signature":
                     raise AttributeError(
                         "building cert of type {} failed! {} field missing".format(
-                            certificate_format, fieldname)
+                            self.certificate_format, fieldname
+                        )
                     )
             except TypeError as err:
                 raise TypeError(
@@ -191,7 +193,7 @@ class SSHCertificate(object):                                                   
             raise NotImplementedError(
                 "certificate type {} is not one of the implemented formats".format(
                     cert_fmt))
-        newcert = cls()
+        newcert = cls(cert_fmt)
         for fieldtype, fieldname in ssh_certificate_formats[cert_fmt]:
             try:
                 value, raw = fieldtype.decode(raw)
@@ -210,3 +212,17 @@ class SSHCertificate(object):                                                   
                 ))
             #print "set field {} to value {}".format(fieldname, repr(value))
         return newcert
+
+    def sign(self, private_key):
+        # get key type field (e.g. "ssh-rsa") from the signature_key
+        key_type = decode_string(self.signature_key)[0]                             #pylint: disable=no-member
+        if key_type not in certificate_signing_methods:
+            raise NotImplementedError("cannot sign certificate with a {} key".format(key_type))
+        del self.signature
+        raw_signature = certificate_signing_methods[self.certificate_format](
+            self.build_certificate(),
+            private_key
+        )
+        self.signature = encode_string(key_type)                                    #pylint: disable=attribute-defined-outside-init
+        for fieldtype, fieldname in ssh_signature_formats[key_type]:
+            self.signature += fieldtype.encode(raw_signature[fieldname])

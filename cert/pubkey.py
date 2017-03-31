@@ -13,15 +13,14 @@ from .formats import ssh_pubkey_formats
 from .encodec import encode_string, decode_string
 
 class SSHPublicKeyFile(object):
-    def __init__(self):
-        pass
+    def __init__(self, keyfile_format):
+        if keyfile_format not in ssh_pubkey_formats:
+            raise NotImplementedError("pubkey format {} is not supported".format(keyfile_format))
+        self.keyfile_format = keyfile_format
 
-    def build_keyfile(self, pubkey_fmt):
-        if pubkey_fmt not in ssh_pubkey_formats:
-            raise NotImplementedError("pubkey format {} is not supported".format(pubkey_fmt))
-
-        output = encode_string(pubkey_fmt)
-        for field_type, fieldname in ssh_pubkey_formats[pubkey_fmt]:
+    def build_keyfile(self):
+        output = encode_string(self.keyfile_format)
+        for field_type, fieldname in ssh_pubkey_formats[self.keyfile_format]:
             try:
                 value = field_type.encode(self.__getattribute__(fieldname))
                 output += value
@@ -35,16 +34,17 @@ class SSHPublicKeyFile(object):
     @classmethod
     def load(cls, filename):
         with open(filename) as pubkeyfile:
-            raw = base64.b64decode(pubkeyfile.read().split(' ')[1])
-            return cls.loads(raw)
+            return cls.load_b64encoded(pubkeyfile.read().split(' ')[1])
+
+    @classmethod
+    def load_b64encoded(cls, b64_encoded):
+        return cls.loads(base64.b64decode(b64_encoded))
 
     @classmethod
     def loads(cls, raw):
         pubkey_fmt, raw = decode_string(raw)
-        if pubkey_fmt not in ssh_pubkey_formats:
-            raise NotImplementedError("pubkey format {} is not supported".format(pubkey_fmt))
 
-        newkey = cls()
+        newkey = cls(pubkey_fmt)
         for fieldtype, fieldname in ssh_pubkey_formats[pubkey_fmt]:
             try:
                 value, raw = fieldtype.decode(raw)
