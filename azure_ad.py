@@ -72,7 +72,7 @@ def get_user_name(graph_bearer_token):
         data={}
     ).json()
 
-    return user_info['userPrincipalName'].split('@')[0]
+    return user_info['userPrincipalName']#.split('@')[0]
 
 def get_graph_token(client_id, tenant_id, aad_refresh_token):
     """ Get a bearer token that can be used for the Graph API """
