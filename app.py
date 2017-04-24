@@ -102,8 +102,6 @@ class SSHCertGenerator(object):
 
         if not csr.verify():
             raise web.HTTPError('403 Forbidden', data="bad request signature")
-#        if csr.principal != user_name.split('@')[0]:
-#            raise web.HTTPError('403 Forbidden', data="csr principal not valid")
 
 
         vault_client = get_vault_client(CLIENT_ID, CLIENT_SECRET, TENANT_ID)
@@ -121,7 +119,6 @@ class SSHCertGenerator(object):
             user_cert.__setattr__(number, value)
         user_cert.type = SSHCSR.CSR_CERTIFICATE_TYPES[csr.certificate_type]
         user_cert.key_id = "{}_{}".format(csr.certificate_type, csr.principal)
-        #user_cert.valid_principals = [user_name.split('@')[0]]
         user_cert.valid_principals = [user_name]
         user_cert.critical_options = csr.critical_options
         user_cert.extensions = csr.extensions

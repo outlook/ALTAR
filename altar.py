@@ -122,14 +122,14 @@ def main():
         privkey = privkey_fh.read()
     pubkey = SSHPublicKeyFile.load(os.path.expanduser(options.identity + ".pub"))
 
-    cert_principal = options.principal if options.principal else options.login.split('@')[0]
+    cert_principal = options.principal if options.principal else options.login
     csr = SSHCSR(
         principal=cert_principal,
         certificate_type="user" if not options.host_certificate else "host",
         certificate_format="ssh-rsa-cert-v01@openssh.com",
         public_key=pubkey,
         critical_options={},
-        extensions=[]
+        extensions=["permit-pty"]
     )
     csr.sign(privkey)
 
@@ -139,9 +139,10 @@ def main():
         data=csr.json(include_signature=True)
     )
     if response.status_code >= 300:
-        with open("shit.html", "w+") as shitfile:
-            shitfile.write(response.text)
-            print('shit')
+        with open("error.html", "w+") as errfile:
+            errfile.write(response.text)
+            print('The operation failed. Please see error.html for details')
+            sys.exit(1)
     else:
         print("{}".format(response.text))
 
