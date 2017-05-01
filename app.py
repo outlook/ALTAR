@@ -20,6 +20,7 @@ from cert.request import SSHCSR, CSR_SCHEMA
 TENANT_ID = os.environ['WEBSITE_AUTH_OPENID_ISSUER'].split('/', 4)[3]
 CLIENT_ID = os.environ['WEBSITE_AUTH_CLIENT_ID']
 CLIENT_SECRET = os.environ['WEBSITE_AUTH_CLIENT_SECRET']
+AZURE_KEYVAULT_URL = os.environ['APPSETTING_AZURE_KEYVAULT_URL']
 
 URLS = (
     '/pubkey', 'CAKeyFile',
@@ -36,7 +37,7 @@ class CAKeyFile(object):
             vault_client = get_vault_client(CLIENT_ID, CLIENT_SECRET, TENANT_ID)
             pubkey_numbers = get_signing_pubkey(
                 vault_client,
-                "https://olm-altar-test.vault.azure.net/secrets/signing-pubkey"
+                "{}/secrets/signing-pubkey".format(AZURE_KEYVAULT_URL)
             ).public_numbers()
         except AuthenticationError as err:
             raise web.HTTPError(
@@ -107,7 +108,7 @@ class SSHCertGenerator(object):
         vault_client = get_vault_client(CLIENT_ID, CLIENT_SECRET, TENANT_ID)
         signing_key = get_signing_privkey(
             vault_client,
-            "https://olm-altar-test.vault.azure.net/secrets/signing-key"
+            "{}/secrets/signing-key".format(AZURE_KEYVAULT_URL)
         )
         pubkey_numbers = signing_key.public_key().public_numbers()
         signing_pubkey = cert.SSHPublicKeyFile("ssh-rsa")
