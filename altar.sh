@@ -7,3 +7,8 @@ export AZURE_USERID="janesmith@prod.contoso.com"
 export IDENTITY="~/.ssh/id_rsa"
 
 python altar.py
+
+if [[ "$(uname -s)" == "Darwin" ]];
+then
+    ssh-add -K "${IDENTITY}-cert.pub"
+fi

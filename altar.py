@@ -144,7 +144,11 @@ def main():
             print('The operation failed. Please see error.html for details')
             sys.exit(1)
     else:
-        print("{}".format(response.text))
+        certfilename = os.path.expanduser(options.identity + "-cert.pub")
+        with open(certfilename, "w") as certfile:
+            certfile.write(response.text)
+            print("Wrote certificate file to {}".format(certfilename))
+
 
 if __name__ == "__main__":
     main()

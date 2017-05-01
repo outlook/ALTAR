@@ -92,6 +92,15 @@ The key is available via HTTPS at the `/pubkey` address of your Web Service.
 >
 > If this is a problem, check out [`libnss-aad`](https://github.com/outlook/libnss-aad)!
 
+How to Use ALTAR
+----------------
+
+Once the service is configured, users can invoke the `altar.py` command to generate certificates. A wrapper script, `altar.sh` is provided that shows the minimum necessary environment variables (which correspond to options supported by `altar.py`).
+
+The resulting certificate is written to `${IDENTITY}-cert.pub` (e.g. `~/.ssh/id_rsa-cert.pub`) by `altar.py`.
+
+> n.b. The wrapper script will also helpfully add the certificate to the macOS Keychain if the system is Darwin.
+
 Security Considerations
 -----------------------
 
