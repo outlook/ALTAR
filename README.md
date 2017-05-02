@@ -81,6 +81,10 @@ Create two new secrets and copy the key files into them; the public key file is 
 $ az keyvault secret set --name signing-key --file ./ca --vault-name ...
 ```
 
+### Configuring User Authorization ###
+
+Users authorized to generate SSH certificates (and, likely by extension, log into hosts) are expected to belong to a configurable group. After grouping the users according to your environment, you must configure the Web App. Within the Web App's portal blade, open "Application Settings". In the App Settings section, add a key named "PERMITTED_GROUP", with a value that matches the display name of the group you wish to authorize.
+
 Configuring Hosts
 -----------------
 

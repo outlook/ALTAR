@@ -86,6 +86,11 @@ class SSHCertGenerator(object):
 
         """
 
+        try:
+            permitted_group = os.environ['APPSETTING_PERMITTED_GROUP']
+        except KeyError:
+            raise web.HTTPError('503 Service Unavailable', data="no groups permitted")
+
         graph_bearer_token = get_graph_token(
             CLIENT_ID,
             TENANT_ID,
@@ -94,7 +99,9 @@ class SSHCertGenerator(object):
 
         try:
             user_name = get_user_name(graph_bearer_token)
-            _groups = get_groups(TENANT_ID, graph_bearer_token, prefix_filter='olm-')
+            groups = get_groups(TENANT_ID, graph_bearer_token)
+            if permitted_group not in groups:
+                raise web.HTTPError('403 Forbidden')
             csr = cert.SSHCSR.load(json.loads(web.data()))
         except RuntimeError as err:
             raise web.HTTPError('503 Service Unavailable', data=str(err))
