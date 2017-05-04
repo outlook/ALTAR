@@ -1,0 +1,31 @@
+# www.websequencediagrams.com
+title ALTAR Process Flow
+
+participant AAD OAuth2
+participant ALTAR CLI
+participant Web App
+participant Graph API
+participant Key Vault
+
+ALTAR CLI->+AAD OAuth2: get token as CLI user
+AAD OAuth2->ALTAR CLI: prompt with URL
+ALTAR CLI->AAD OAuth2: interactive login
+AAD OAuth2->-ALTAR CLI: return Web App token
+note over ALTAR CLI: generate CSR
+ALTAR CLI->Web App: submit CSR
+Web App->+AAD OAuth2: get Graph API token as CLI user
+AAD OAuth2->-Web App: return token for Graph API
+Web App->+Graph API: get user details
+Graph API->Web App:
+Web App->Graph API: get user groups
+Graph API->-Web App:
+note over Web App: validate CSR
+note over Web App: check group\nmembership
+Web App->+AAD OAuth2: get Key Vault token as Web App
+AAD OAuth2->-Web App:
+Web App->+Key Vault: get CA privkey secret
+Key Vault->Web App:
+Web App->Key Vault: get CA pubkey
+Key Vault->-Web App:
+note over Web App: generate signed\ncertificate
+Web App->ALTAR CLI: return certificate

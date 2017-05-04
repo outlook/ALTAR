@@ -9,7 +9,17 @@ ALTAR combines a few different Azure technologies:
 * The [Azure Key Vault](https://azure.microsoft.com/en-us/services/key-vault/) service is used to store all cryptographic material. In the (near!) future, it will be used to perform key generation and signing operations.
 * [Azure Active Directory](https://azure.microsoft.com/en-us/services/active-directory/) is used to restrict access to ALTAR, as well as the provider for identity information about the certificate holder.
 
-By combining these technologies, ALTAR provides a facility for issuance and delivery of SSH certificates that can be used in lieu of pre-shared or authorized key files that also centralizes enforcement of security requirements such as 2FA, regular privilege review, centralized privilege escalation/access logging, and more.
+By combining these technologies, ALTAR provides a facility for issuance and delivery of SSH certificates that can be used in lieu of authorized key files, and that also centralizes enforcement of security requirements such as 2FA, regular privilege review, centralized privilege escalation/access logging, and more.
+
+**In the interests of "release early, release often", ALTAR is being published while still being tested and developed internally. It is considered experimental!**
+
+
+Architectural Overview
+----------------------
+
+![ALTAR Sequence Diagram](sequence_flow.png)
+[(source)](sequence_flow.txt)
+
 
 Installation
 ------------
@@ -41,13 +51,18 @@ Under Required Permissions, grant the following permissions:
 
 Open the Web App's blade, and select "Authentication/Authorization". Turn on App Service Authentication, and select "Log in with Azure Active Directory" in the drop-down. Click the Azure Active Directory option, and set Management Mode to "Advanced". Enter the `${AD_WEB_APP_NAME}`'s client ID, `https://sts.windows.net/${TENANT_ID}/` as the Issuer URL[, and a client secret created for this Service]. Set an Allowed Token Audience to the URL of your Web App, e.g. `https://${WEB_APP_NAME}.azurewebsites.net`.
 
-Resource Explorer -> config -> authsetting:
-[Read/Write]
-[Edit]
-properties.clientSecret = Web App Key
-properties."additionalLoginParams": [ "response_type=id_token code" ],
-[PUT]
-[Read Only]
+Now update some authentication-related configuration settings in the Web App. In the Web App's blade, click on "Resource Explorer". Descend the tree through `config`, and open the `authsetting` document. Edit the document to set:
+
+```json
+properties {
+    ...,
+    "clientSecret": "...",
+    "additionalLoginParams": [ "response_type=id_token code" ],
+    ...,
+    }
+```
+
+where `clientSecret` is the secret for the AAD Web App you created earlier.
 
 Before doing your first deployment of ALTAR, you'll need to upgrade pip. Open the Console in the App Service blade, and run `env\scripts\activate.bat`, followed by `env\scripts\pip.exe install --upgrade pip`.
 
